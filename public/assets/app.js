@@ -164,6 +164,7 @@
 
     if (el.count) { el.count.textContent = total > 0 ? '(' + total + ')' : ''; }
     if (el.empty) { el.empty.hidden = total > 0; }
+    el.list.classList.toggle('is-empty', total === 0);
 
     var base = document.title.replace(/^\(\d+\)\s*/, '');
     document.title = unread > 0 ? '(' + unread + ') ' + base : base;

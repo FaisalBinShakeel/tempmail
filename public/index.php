@@ -284,7 +284,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
       </div>
     <?php endif; ?>
 
-    <ul class="message-list" id="message-list">
+    <ul class="message-list<?= count($messages) === 0 ? ' is-empty' : '' ?>" id="message-list">
       <?php foreach ($messages as $m):
           $sender = trim((string) ($m['sender_name'] ?? '')) !== ''
               ? (string) $m['sender_name']

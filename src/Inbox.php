@@ -155,6 +155,23 @@ final class Inbox
         return $localPart . '@' . DOMAIN;
     }
 
+    /**
+     * True when this full address has a live inbox.
+     *
+     * For mail intake only (receive.php): it answers yes/no about an address
+     * and hands back nothing an inbox could be accessed with, so it is not a
+     * way around token-based authorization.
+     */
+    public static function isLive(string $address): bool
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT 1 FROM inboxes WHERE address = ? AND expires_at > NOW() LIMIT 1'
+        );
+        $stmt->execute([strtolower(trim($address))]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
     /** True when a live (non-expired) inbox already holds this prefix. */
     private static function isTaken(string $prefix): bool
     {

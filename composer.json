@@ -1,0 +1,18 @@
+{
+    "name": "faisal/tempmail",
+    "description": "Disposable email web app: random and custom inboxes with a live-updating reader.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-mbstring": "*",
+        "ext-mailparse": "*",
+        "php-mime-mail-parser/php-mime-mail-parser": "^8.0"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
