@@ -34,6 +34,10 @@ message id sent by the client is never used to decide what it may read.
 
 ## Install
 
+> Setting this up on a fresh VPS, including DNS, Postfix and TLS?
+> **[DEPLOY.md](DEPLOY.md)** is the full step-by-step build. The summary below
+> assumes you already have nginx, PHP-FPM, MySQL and Postfix running.
+
 ```bash
 # 1. Code
 sudo git clone <your-repo> /var/www/tempmail
@@ -54,7 +58,8 @@ sudo nano config.php            # DB credentials, DOMAIN, lifetimes
 sudo chown -R root:www-data /var/www/tempmail
 sudo chmod -R o-rwx /var/www/tempmail
 sudo chmod 640 /var/www/tempmail/config.php
-sudo install -d -o www-data -g www-data -m 750 /var/www/tempmail/logs
+sudo install -d -o www-data -g www-data -m 2770 /var/www/tempmail/logs
+sudo install -o www-data -g www-data -m 664 /dev/null /var/www/tempmail/logs/app.log
 
 # 5. Web server
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/tempmail
@@ -96,7 +101,7 @@ Create the pipe user and let it read the app:
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin tempmail
 sudo chgrp -R tempmail /var/www/tempmail/{src,config.php,vendor,receive.php}
 sudo chmod 640 /var/www/tempmail/config.php
-sudo chgrp tempmail /var/www/tempmail/logs && sudo chmod 770 /var/www/tempmail/logs
+sudo usermod -a -G www-data tempmail   # lets the pipe user read config.php and append to logs/
 sudo postfix reload
 ```
 
@@ -115,7 +120,7 @@ no stored row.
 |---|---|---|---|
 | `/var/www/tempmail` | `root:www-data` | `750` | nothing world-readable |
 | `config.php` | `root:www-data` | `640` | credentials; also readable by the Postfix pipe user's group if you add it |
-| `logs/` | `www-data:tempmail` | `770` | written by PHP-FPM and by `receive.php` |
+| `logs/` | `www-data:www-data` | `2770` | written by PHP-FPM and by `receive.php`; setgid keeps new files group-writable |
 | `public/` | `root:www-data` | `750` | the only directory nginx serves |
 
 ## Configuration
@@ -188,9 +193,10 @@ tail -f /var/www/tempmail/logs/app.log    # what did receive.php say?
 
 `mail.log` shows `temporary failure. Command output: ... Permission denied`:
 
-- the pipe user cannot read `config.php` (`chgrp tempmail config.php`,
-  `chmod 640`), or
-- it cannot write `logs/` (`chgrp tempmail logs; chmod 770 logs`), or
+- the pipe user is not in the `www-data` group, so it cannot read `config.php`
+  (`sudo usermod -a -G www-data tempmail`), or
+- it cannot append to `logs/app.log` (`sudo chmod 2770 logs` and
+  `sudo install -o www-data -g www-data -m 664 /dev/null logs/app.log`), or
 - `open_basedir` in the CLI `php.ini` excludes `/var/www/tempmail`.
 
 **502 Bad Gateway / PHP-FPM socket mismatch**
