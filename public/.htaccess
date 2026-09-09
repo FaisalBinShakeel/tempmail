@@ -1,0 +1,47 @@
+# TempMail — Apache rules for the document root (this directory).
+#
+# Point the web server's DocumentRoot at this public/ folder. Everything the
+# app keeps private — config.php, src/, logs/, the CLI scripts — then sits
+# above the document root where no URL can reach it.
+#
+# Needs mod_rewrite and mod_headers. mod_expires is optional.
+
+Options -Indexes -MultiViews
+
+# NFR-5 security headers. `setifempty` (Apache 2.4.7+), not `set`: index.php
+# already sends these on its own responses, so `set` would emit each header
+# twice. This way Apache only fills them in where PHP is not involved — static
+# files and error pages. On Apache older than 2.4.7, change these to `set`.
+<IfModule mod_headers.c>
+    Header setifempty Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; frame-src 'self'; frame-ancestors 'self'; form-action 'self'; base-uri 'none'; object-src 'none'"
+    Header setifempty X-Frame-Options "SAMEORIGIN"
+    Header setifempty X-Content-Type-Options "nosniff"
+    Header setifempty Referrer-Policy "no-referrer"
+</IfModule>
+
+# Front controller: anything that is not a real file or directory goes to
+# index.php, which renders the inbox.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Never serve dotfiles (.git, .env, .user.ini, …).
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css                "access plus 7 days"
+    ExpiresByType text/javascript         "access plus 7 days"
+    ExpiresByType application/javascript  "access plus 7 days"
+</IfModule>

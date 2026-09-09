@@ -15,8 +15,11 @@ instead.
 | Web user | `www-data` | **`www`** |
 | PHP CLI | `/usr/bin/php` | `/www/server/php/82/bin/php` |
 | FPM socket | `/run/php/php8.2-fpm.sock` | `/tmp/php-cgi-82.sock` |
-| Site nginx config | `/etc/nginx/sites-available/…` | `/www/server/panel/vhost/nginx/<domain>.conf` |
-| Custom nginx rules | edit the site config | `/www/server/panel/vhost/rewrite/<domain>.conf` |
+| Site config (Apache) | `/etc/apache2/sites-available/…` | `/www/server/panel/vhost/apache/<domain>.conf` |
+| Site config (nginx) | `/etc/nginx/sites-available/…` | `/www/server/panel/vhost/nginx/<domain>.conf` |
+| Custom rules (Apache) | vhost or `.htaccess` | **`public/.htaccess` — ships in this repo, nothing to configure** |
+| Custom rules (nginx) | edit the site config | `/www/server/panel/vhost/rewrite/<domain>.conf` |
+| Restart the web server | `systemctl reload …` | `/etc/init.d/httpd reload` (Apache) / `/etc/init.d/nginx reload` |
 | SSL | certbot by hand | Website → SSL → Let's Encrypt |
 | Cron | `/etc/cron.d/…` | Cron page in the panel |
 | Firewall | `ufw` | panel **Security** page **+** your cloud firewall |
@@ -55,7 +58,8 @@ dig +short MX mail.example.com
 
 **Software Store → Runtime environment**
 
-- **Nginx** (any recent version)
+- **Apache** (or Nginx — both are covered below; Apache needs no extra
+  config because the repo ships `public/.htaccess`)
 - **PHP 8.2** — after installing, click **Setting → Install extensions** and
   make sure these are on: `pdo_mysql`, `mbstring`, `fileinfo`, `opcache`
 - **MySQL 5.7 or 8.0**
@@ -183,50 +187,65 @@ automatically. Wait for it to say the certificate was issued before moving on �
 
 ---
 
-## 9. Custom nginx rules
+## 9. Web server rules (headers + protection)
 
-The repo ships the exact file to use:
+### If you run Apache
+
+Nothing to configure — `public/.htaccess` ships in the repo and aaPanel's
+Apache vhost already sets `AllowOverride All`, so it is picked up as soon as
+the site loads. It adds the security headers, the front controller, asset
+caching, and refuses dotfiles.
+
+Confirm the panel really allows overrides, then reload:
+
+```bash
+grep -n "AllowOverride" /www/server/panel/vhost/apache/$DOMAIN.conf
+# expect: AllowOverride All
+
+/www/server/apache/bin/apachectl -t && /etc/init.d/httpd reload
+```
+
+If it says `AllowOverride None`, open **Website → Settings → Configuration
+File** and change it to `All`, then reload.
+
+There is a second `.htaccess` at the project root. It only comes into play if
+the document root was left at the site root instead of `/public` — then it
+refuses `config.php`, `src/`, `logs/`, `vendor/` and the CLI scripts while
+still serving the app out of `public/`. Step 7 remains the correct setup; this
+is a safety net, not a substitute.
+
+### If you run Nginx
 
 ```bash
 cp /www/wwwroot/$DOMAIN/deploy/aapanel-rewrite.conf \
    /www/server/panel/vhost/rewrite/$DOMAIN.conf
-```
 
-Make sure the site config actually includes it (aaPanel adds this line for
-you, but check):
-
-```bash
 grep -n "vhost/rewrite" /www/server/panel/vhost/nginx/$DOMAIN.conf
-# include /www/server/panel/vhost/rewrite/mail.example.com.conf;
-```
+# expect: include /www/server/panel/vhost/rewrite/mail.example.com.conf;
 
-If the line is missing, add it between the `#REWRITE-START` and `#REWRITE-END`
-markers via **Website → Settings → Configuration File**.
-
-Then test and reload:
-
-```bash
 /www/server/nginx/sbin/nginx -t && /etc/init.d/nginx reload
 ```
 
-What that file adds: the security headers (CSP with no inline scripts,
-`X-Frame-Options`, `nosniff`, `no-referrer`), a front-controller `try_files`,
-asset caching, and `^~` denies for `config.php`, `src/`, `logs/`, `vendor/`
-and the CLI scripts.
+If the include line is missing, add it between the `#REWRITE-START` and
+`#REWRITE-END` markers via **Website → Settings → Configuration File**.
 
-> The `^~` matters on aaPanel: the panel's `include enable-php-82.conf;` sits
-> *earlier* in the site config and matches every `*.php` request, so a plain
-> regex deny would never be reached. `^~` outranks regex locations, so the deny
-> wins. (Verified with nginx 1.24 against a replica of aaPanel's config
-> ordering.)
+> The denies in that file all use `^~` on purpose: aaPanel's
+> `include enable-php-82.conf;` sits *earlier* in the site config and matches
+> every `*.php` request, so a plain regex deny would never be reached. `^~`
+> outranks regex locations in nginx, so the deny wins.
 
-Check it in a browser or with curl:
+### Either way, check it
 
 ```bash
-curl -sI https://$DOMAIN/ | head -3                       # expect 200
-curl -s -o /dev/null -w "%{http_code}\n" https://$DOMAIN/config.php   # expect 404
-curl -s https://$DOMAIN/ | grep -o 'class="address">[^<]*'            # your first address
+curl -sI https://$DOMAIN/ | head -3                                    # expect 200
+curl -s -o /dev/null -w "%{http_code}\n" https://$DOMAIN/config.php    # must not show the file
+curl -s https://$DOMAIN/config.php | grep -c DB_PASS                   # must print 0
+curl -s https://$DOMAIN/ | grep -o 'class="address">[^<]*'             # your first address
+curl -sI https://$DOMAIN/ | grep -i content-security-policy            # headers present
 ```
+
+With the document root on `/public`, a request for `/config.php` simply
+renders the inbox page — the file is above the web root and no URL reaches it.
 
 ---
 
@@ -467,7 +486,17 @@ is `/public` under the same site root.
 Composer only. See step 11 — remove it from disabled functions, install, put it
 back.
 
-**Custom nginx rules stopped working**
+**Apache: security headers missing, or every URL 404s**
+`AllowOverride` is not `All`, so `public/.htaccess` is being ignored — see
+step 9. `Internal Server Error` instead means a module is missing:
+`/www/server/apache/bin/apachectl -M | grep -E 'rewrite|headers'`. Enable
+Apache's rewrite and headers modules from the panel's Apache settings.
+
+**Apache: `.htaccess` works but PHP files download as text**
+The site's PHP version is not set. **Website → Settings → PHP version** →
+pick 8.2, then reload.
+
+**Nginx: custom rules stopped working**
 The panel overwrote `/www/server/panel/vhost/rewrite/<domain>.conf`, which it
 does when you pick a rewrite preset in the UI. Copy
 `deploy/aapanel-rewrite.conf` back over it and reload nginx.

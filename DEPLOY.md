@@ -117,6 +117,17 @@ sudo apt -y install nginx mariadb-server git unzip composer certbot python3-cert
                     php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-mailparse
 ```
 
+**Prefer Apache?** Install it instead of nginx and use `deploy/apache.conf`:
+
+```bash
+sudo apt -y install apache2 mariadb-server git unzip composer certbot python3-certbot-apache \
+                    php-fpm php-cli php-mysql php-mbstring php-xml php-curl php-mailparse
+sudo a2enmod rewrite headers expires proxy proxy_fcgi
+```
+
+Everything else in this guide is identical except step 7 — the Apache version
+of that step is at the end of this file.
+
 Note the PHP version you got — you need it in step 7:
 
 ```bash
@@ -573,3 +584,40 @@ Honestly: there is nothing here worth backing up except `config.php` and
 Remove `https:` from `img-src` in both `public/index.php` and
 `/etc/nginx/sites-available/tempmail`, then reload nginx. Remote images stop
 loading; everything else keeps working.
+
+---
+
+## Appendix: Apache instead of nginx
+
+Replaces step 7. Steps 1–6 and 8–12 are unchanged.
+
+```bash
+sudo cp /var/www/tempmail/deploy/apache.conf /etc/apache2/sites-available/tempmail.conf
+
+PHP_SOCK=$(ls /run/php/php*-fpm.sock | head -1)
+sudo sed -i "s/mail\.example\.com/${TM_DOMAIN}/g" /etc/apache2/sites-available/tempmail.conf
+sudo sed -i "s|unix:/run/php/php8\.3-fpm\.sock|unix:${PHP_SOCK}|" /etc/apache2/sites-available/tempmail.conf
+
+sudo a2enmod rewrite headers expires proxy proxy_fcgi ssl
+sudo a2dissite 000-default
+sudo a2ensite tempmail
+sudo apache2ctl configtest && sudo systemctl reload apache2
+
+sudo certbot --apache -d "$TM_DOMAIN" --agree-tos -m you@youremail.com --redirect --non-interactive
+```
+
+`deploy/apache.conf` inlines the same rules as the nginx config (security
+headers, front controller, asset caching, denies) with `AllowOverride None`,
+which is the faster option. If you would rather use `.htaccess` — on shared
+hosting, say — set `AllowOverride All` and delete the `<Directory>` body: the
+repo already ships `public/.htaccess` with the identical rules, plus a root
+`.htaccess` that protects the app if the document root is ever left at the
+project root instead of `public/`.
+
+Check it the same way:
+
+```bash
+curl -sI "https://$TM_DOMAIN/" | head -3
+curl -s "https://$TM_DOMAIN/config.php" | grep -c DB_PASS      # must print 0
+curl -sI "https://$TM_DOMAIN/" | grep -i content-security-policy
+```

@@ -28,7 +28,7 @@ message id sent by the client is never used to decide what it may read.
 | PHP 8.1+ (FPM + CLI) | extensions: `pdo_mysql`, `mbstring`, `json`, `session` |
 | `ext-mailparse` | optional but recommended — `receive.php` uses php-mime-mail-parser when it is present, and a smaller built-in parser when it is not |
 | MySQL 8 / MariaDB 10.6+ | |
-| nginx | config in `deploy/nginx.conf` |
+| nginx **or** Apache 2.4 | `deploy/nginx.conf`, or `deploy/apache.conf` / the bundled `public/.htaccess` |
 | Composer | for the MIME parser |
 | Postfix | already accepting mail for your domain |
 
@@ -161,6 +161,9 @@ lets clients pick their own rate-limit bucket by sending a header.
   `rel="noopener noreferrer"` to links.
 - CSRF tokens are required on every state-changing POST.
 - The CSP allows no inline scripts; all JavaScript is in `assets/app.js`.
+  index.php sends the security headers itself, so the app is safe even on a
+  server with no custom config; the nginx and Apache configs add them for
+  static files only, so nothing is sent twice.
   `style-src` does allow inline styles: a `srcdoc` iframe inherits the parent
   page's CSP, and almost every HTML email styles itself with `style=`
   attributes, so without it mail would render unstyled. Scripts stay blocked
@@ -225,12 +228,15 @@ development with `DELETE FROM rate_limits;`.
 ## Project layout
 
 ```
-public/            nginx root — index.php, assets/, api/
+public/            web root — index.php, assets/, api/, .htaccess
 src/               Database, Inbox, Message, RateLimiter, Csrf, Helpers
 receive.php        Postfix pipe target
 cleanup.php        cron: purge expired inboxes and mail
 verify.php         post-install checks
 schema.sql         the three tables
-deploy/nginx.conf  server block
+deploy/nginx.conf  nginx server block
+deploy/apache.conf Apache virtual host
+deploy/aapanel-rewrite.conf  nginx rules for aaPanel
+.htaccess          root safety net if the web root is misconfigured
 config.php         credentials (gitignored)
 ```

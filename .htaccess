@@ -1,0 +1,34 @@
+# TempMail — safety net for the project root.
+#
+# Apache only reads this file if the document root was pointed at the project
+# root instead of public/. The correct setup is DocumentRoot → public/ (in
+# aaPanel: Website → Settings → Site directory → Running directory = /public).
+# These rules keep such an install working while still refusing every path
+# that must never be public.
+
+Options -Indexes -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Private by definition — refuse before anything else can serve them.
+    RewriteRule ^(src|logs|vendor|deploy)/            - [F,L]
+    RewriteRule ^(config|config\.example)\.php$       - [F,L]
+    RewriteRule ^(receive|cleanup|verify)\.php$       - [F,L]
+    RewriteRule ^(composer\.(json|lock)|schema\.sql)$ - [F,L]
+
+    # Serve the app out of public/ so a root-docroot install still works.
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# If mod_rewrite is unavailable, fail closed rather than exposing config.php.
+<IfModule !mod_rewrite.c>
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</IfModule>
