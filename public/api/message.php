@@ -20,8 +20,9 @@ $messages = Message::forInbox($inbox);
 $row      = $messages->get((int) $id);
 
 if ($row === null) {
-    // Not ours, or already gone. Same answer either way — no existence oracle.
-    json_error('Message not found.', 404);
+    // 403 whether the id belongs to someone else or does not exist at all,
+    // so the response can never confirm another inbox's message.
+    json_error('You do not have access to that message.', 403);
 }
 
 $messages->markRead((int) $id);
@@ -38,4 +39,7 @@ json_response([
     'received_at'    => $row['received_at'],
     'relative_time'  => relative_time((string) $row['received_at']),
     'otp'            => Message::extractOtp($row['subject'], $row['body_text']),
+    // Ready-made document for the sandboxed iframe: the client only ever
+    // assigns this to srcdoc, never to innerHTML.
+    'iframe_doc'     => Message::iframeDocument($row['body_html'], $row['body_text']),
 ]);

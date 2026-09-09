@@ -20,7 +20,8 @@ if ($id === false || $id === 0) {
 }
 
 if (!Message::forInbox($inbox)->delete((int) $id)) {
-    json_error('Message not found.', 404);
+    // Same 403 for someone else's message and for one that never existed.
+    json_error('You do not have access to that message.', 403);
 }
 
 json_response(['ok' => true]);

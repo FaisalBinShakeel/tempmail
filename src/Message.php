@@ -196,6 +196,57 @@ final class Message
         return null;
     }
 
+    /**
+     * A complete HTML document for the sandboxed reader iframe (FR-4.2/4.3).
+     *
+     * Built server-side so the browser only ever assigns it to srcdoc — the
+     * body never reaches the parent document. The iframe already runs without
+     * allow-scripts; stripping script-ish markup here is defence in depth.
+     */
+    public static function iframeDocument(?string $html, ?string $text): string
+    {
+        $html = (string) $html;
+        $body = trim($html) !== ''
+            ? self::stripActiveMarkup($html)
+            : '<pre class="plain">' . htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8') . '</pre>';
+
+        $style = 'html{color-scheme:light}'
+            . 'body{margin:0;padding:12px;font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;'
+            . 'color:#111;background:#fff;word-break:break-word;overflow-wrap:anywhere}'
+            . 'img{max-width:100%;height:auto}'
+            . 'table{max-width:100%}'
+            . 'pre.plain{white-space:pre-wrap;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;margin:0}';
+
+        return '<!doctype html><html><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . '<meta http-equiv="Content-Security-Policy" content="script-src \'none\'; object-src \'none\'; base-uri \'none\'">'
+            . '<base target="_blank">'
+            . '<style>' . $style . '</style></head><body>' . $body . '</body></html>';
+    }
+
+    /** Remove executable markup and rewrite links to open safely (FR-4.5). */
+    private static function stripActiveMarkup(string $html): string
+    {
+        $patterns = [
+            '#<\s*(script|object|embed|applet|iframe|frame|frameset|form|base|link)\b[^>]*>.*?<\s*/\s*\1\s*>#is' => '',
+            '#<\s*(script|object|embed|applet|iframe|frame|base|link|meta)\b[^>]*/?>#is'                            => '',
+            '#\son[a-z]+\s*=\s*"[^"]*"#i'                                                                          => '',
+            "#\son[a-z]+\s*=\s*'[^']*'#i"                                                                          => '',
+            '#\son[a-z]+\s*=\s*[^\s>]+#i'                                                                         => '',
+            '#(href|src|action)\s*=\s*(["\']?)\s*(?:javascript|vbscript|data)\s*:[^"\'>\s]*\2#i'            => 'href="#"',
+        ];
+
+        foreach ($patterns as $pattern => $replacement) {
+            $result = preg_replace($pattern, $replacement, $html);
+            $html   = is_string($result) ? $result : $html;
+        }
+
+        // Every link opens in a new tab, disconnected from this page.
+        $result = preg_replace('#<a\b#i', '<a rel="noopener noreferrer nofollow" target="_blank"', $html);
+
+        return is_string($result) ? $result : $html;
+    }
+
     /** Reject the usual false positives: years and dates-as-numbers. */
     private static function isPlausibleCode(string $digits): bool
     {
