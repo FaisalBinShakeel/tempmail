@@ -34,9 +34,10 @@ message id sent by the client is never used to decide what it may read.
 
 ## Install
 
-> Setting this up on a fresh VPS, including DNS, Postfix and TLS?
-> **[DEPLOY.md](DEPLOY.md)** is the full step-by-step build. The summary below
-> assumes you already have nginx, PHP-FPM, MySQL and Postfix running.
+> **Full step-by-step deployment guides:**
+> **[DEPLOY.md](DEPLOY.md)** for a plain VPS (DNS, firewall, Postfix, certbot),
+> or **[DEPLOY-AAPANEL.md](DEPLOY-AAPANEL.md)** if you run aaPanel.
+> The summary below assumes you already have nginx, PHP-FPM, MySQL and Postfix.
 
 ```bash
 # 1. Code
