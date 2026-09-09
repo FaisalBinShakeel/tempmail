@@ -1,0 +1,16 @@
+# Local configuration — contains DB credentials, never commit
+/config.php
+
+# Composer
+/vendor/
+composer.lock
+
+# Runtime logs
+/logs/*
+!/logs/.gitkeep
+
+# Editor / OS noise
+.DS_Store
+*.swp
+.idea/
+.vscode/
