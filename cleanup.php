@@ -40,6 +40,8 @@ function purge_orphan_emails(PDO $pdo): int
             break;
         }
 
+        // The only SQL built at runtime: a row of '?' marks sized to the
+        // batch. No value is interpolated — every id is bound below.
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $delete = $pdo->prepare('DELETE FROM emails WHERE id IN (' . $placeholders . ')');
         $delete->execute($ids);

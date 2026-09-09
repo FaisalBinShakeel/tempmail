@@ -19,5 +19,6 @@ $result = Inbox::isAvailable($prefix);
 json_response([
     'available' => $result['available'],
     'reason'    => $result['reason'],
-    'address'   => Inbox::addressFor(Inbox::normalizePrefix($prefix)),
+    // Only echo an address the user could actually be given.
+    'address'   => $result['available'] ? Inbox::addressFor(Inbox::normalizePrefix($prefix)) : null,
 ]);

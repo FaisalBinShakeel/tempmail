@@ -155,6 +155,10 @@ lets clients pick their own rate-limit bucket by sending a header.
   `rel="noopener noreferrer"` to links.
 - CSRF tokens are required on every state-changing POST.
 - The CSP allows no inline scripts; all JavaScript is in `assets/app.js`.
+  `style-src` does allow inline styles: a `srcdoc` iframe inherits the parent
+  page's CSP, and almost every HTML email styles itself with `style=`
+  attributes, so without it mail would render unstyled. Scripts stay blocked
+  in both documents.
 - Remote images in emails load over HTTPS (`img-src https:`). Drop `https:`
   from the CSP in both `public/index.php` and `deploy/nginx.conf` if you would
   rather block tracking pixels.

@@ -26,6 +26,26 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 
+// A failure while rendering must not become a blank 500 or, worse, a PHP
+// error page with file paths in it. Log the real error, show a plain one.
+ini_set('display_errors', '0');
+set_exception_handler(static function (Throwable $e): void {
+    log_error('index: ' . get_class($e) . ': ' . $e->getMessage()
+        . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+    if (!headers_sent()) {
+        http_response_code(503);
+        header('Content-Type: text/html; charset=utf-8');
+        header('Retry-After: 60');
+    }
+    echo '<!doctype html><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>TempMail is unavailable</title>'
+        . '<link rel="stylesheet" href="assets/style.css">'
+        . '<main><p class="flash flash-error">TempMail is having trouble right now. '
+        . 'Please try again in a minute.</p></main>';
+});
+
 /** Path of this page, safe to use in a Location header. */
 function self_path(): string
 {
