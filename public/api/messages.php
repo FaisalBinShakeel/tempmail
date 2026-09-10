@@ -10,7 +10,8 @@ require_once dirname(__DIR__, 2) . '/src/Message.php';
 
 api_boot();
 api_require_method('GET');
-api_rate_limit('poll', 30, 60); // NFR-9
+[$max, $window] = rate_limit_for('poll');
+api_rate_limit('poll', $max, $window); // NFR-9
 
 $inbox = api_require_inbox();
 $since = filter_var($_GET['since'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['default' => 0, 'min_range' => 0]]);

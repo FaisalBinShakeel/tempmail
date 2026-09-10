@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Helpers.php';
+require_once __DIR__ . '/Settings.php';
 
 final class Inbox
 {
@@ -98,7 +99,11 @@ final class Inbox
                     extensions = extensions + 1
               WHERE id = ? AND extensions < ? AND expires_at > NOW()'
         );
-        $stmt->execute([EXTENSION_MINUTES, $inboxId, MAX_EXTENSIONS]);
+        $stmt->execute([
+            Settings::int('extension_minutes'),
+            $inboxId,
+            Settings::int('max_extensions'),
+        ]);
 
         if ($stmt->rowCount() === 0) {
             throw new RuntimeException('This inbox cannot be extended any further.');
@@ -217,7 +222,7 @@ final class Inbox
         );
 
         try {
-            $stmt->execute([$address, $token, $isCustom ? 1 : 0, INBOX_LIFETIME_MINUTES]);
+            $stmt->execute([$address, $token, $isCustom ? 1 : 0, Settings::int('inbox_lifetime_minutes')]);
         } catch (PDOException $e) {
             if ($e->getCode() === '23000') { // duplicate address — taken meanwhile
                 return null;

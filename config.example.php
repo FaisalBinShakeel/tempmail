@@ -26,6 +26,16 @@ const EXTENSION_MINUTES = 60;
 /** Days the owner cookie survives, so a returning visitor keeps their inbox. */
 const COOKIE_LIFETIME_DAYS = 7;
 
+// -------------------------------------------------------------- admin ------
+/**
+ * Password hash for /admin. Generate it on the server and paste the result:
+ *
+ *   php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'
+ *
+ * Leave it empty to keep the admin panel closed.
+ */
+const ADMIN_PASSWORD_HASH = '';
+
 // -------------------------------------------------------------- runtime -----
 /** Writable directory for application logs. */
 const LOG_DIR = __DIR__ . '/logs';

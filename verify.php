@@ -114,6 +114,23 @@ foreach (['inboxes', 'emails', 'rate_limits'] as $table) {
     });
 }
 
+check('table settings', static function () {
+    $stmt = Database::pdo()->prepare(
+        'SELECT 1 FROM information_schema.TABLES
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+    );
+    $stmt->execute(['settings']);
+    return $stmt->fetchColumn() !== false
+        ? true
+        : 'missing — run: mysql -u USER -p DBNAME < migrations/001_settings.sql';
+}, false);
+
+check('admin password set', static function () {
+    return defined('ADMIN_PASSWORD_HASH') && strlen((string) ADMIN_PASSWORD_HASH) > 20
+        ? true
+        : 'admin panel closed — see /admin for the one-line command that generates the hash';
+}, false);
+
 check('inboxes index on token', static function () {
     $stmt = Database::pdo()->query("SHOW INDEX FROM inboxes WHERE Column_name = 'token'");
     return $stmt->fetch() !== false ? true : 'missing — re-import schema.sql';

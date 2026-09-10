@@ -124,6 +124,34 @@ no stored row.
 | `logs/` | `www-data:www-data` | `2770` | written by PHP-FPM and by `receive.php`; setgid keeps new files group-writable |
 | `public/` | `root:www-data` | `750` | the only directory nginx serves |
 
+## Admin panel
+
+`/admin` gives you health checks, editable settings, inbox statistics and
+maintenance tools. Every failing check shows the exact commands to fix it,
+with this install's real paths and domain filled in.
+
+Set a password (the hash goes in `config.php`, never the password):
+
+```bash
+php -r 'echo password_hash("YOUR-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'
+# paste the result:  const ADMIN_PASSWORD_HASH = '$2y$10$...';
+```
+
+Then open `https://your-domain/admin`. Ten login attempts per IP per 15
+minutes; failures are logged to `logs/app.log`.
+
+**Settings** are stored in the `settings` table and take effect immediately:
+site name, inbox lifetime, extension size and ceiling, and the three rate
+limits. `config.php` supplies the default for each, so an install that has not
+run the migration behaves exactly as before:
+
+```bash
+mysql -u USER -p DBNAME < migrations/001_settings.sql
+```
+
+Database credentials, the mail domain and the admin hash stay in `config.php`
+and are deliberately not editable from the web.
+
 ## Configuration
 
 Everything lives in `config.php` (gitignored):
@@ -137,6 +165,7 @@ Everything lives in `config.php` (gitignored):
 | `COOKIE_SECURE` | keep `true`; set `false` only for local http development |
 | `MAX_BODY_BYTES` | per-part storage cap, larger bodies are truncated |
 | `TRUSTED_PROXIES` | leave empty unless a proxy sits in front of nginx — see below |
+| `ADMIN_PASSWORD_HASH` | password hash for `/admin`; empty keeps the panel closed |
 
 ### TRUSTED_PROXIES and rate limiting
 
@@ -149,6 +178,9 @@ lets clients pick their own rate-limit bucket by sending a header.
 ## Security notes
 
 - Every query is a prepared statement; `LIMIT` values are bound as integers.
+- The admin panel needs a password, checks CSRF on every action, rate-limits
+  logins, and regenerates the session id on sign-in. It reports message counts,
+  never message contents.
 - Inbox access is authorized by the cookie token only. A message id belonging
   to another inbox returns `403`, exactly like an id that does not exist.
 - HTML email is rendered inside `<iframe sandbox="allow-popups
@@ -228,8 +260,10 @@ development with `DELETE FROM rate_limits;`.
 ## Project layout
 
 ```
-public/            web root — index.php, assets/, api/, .htaccess
-src/               Database, Inbox, Message, RateLimiter, Csrf, Helpers
+public/            web root — index.php, admin/, assets/, api/, .htaccess
+src/               Database, Inbox, Message, Settings, Admin, Cleanup,
+                   RateLimiter, Csrf, Helpers
+migrations/        SQL to apply to an existing install
 receive.php        Postfix pipe target
 cleanup.php        cron: purge expired inboxes and mail
 verify.php         post-install checks

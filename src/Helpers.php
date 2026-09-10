@@ -243,6 +243,26 @@ function api_require_inbox(): array
     return $inbox;
 }
 
+/**
+ * The configured ceiling for one of the named limits, so the admin panel can
+ * raise it without a code change.
+ */
+function rate_limit_for(string $action): array
+{
+    require_once __DIR__ . '/Settings.php';
+
+    switch ($action) {
+        case 'generate':
+            return [Settings::int('rate_generate_per_hour'), 3600];
+        case 'availability':
+            return [Settings::int('rate_availability_per_minute'), 60];
+        case 'poll':
+            return [Settings::int('rate_poll_per_minute'), 60];
+        default:
+            throw new InvalidArgumentException('Unknown rate limit: ' . $action);
+    }
+}
+
 /** NFR-10 — enforce a bucket, or answer 429 with a friendly retry hint. */
 function api_rate_limit(string $action, int $maxRequests, int $windowSeconds): void
 {

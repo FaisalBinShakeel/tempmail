@@ -10,6 +10,7 @@ require_once dirname(__DIR__) . '/src/Inbox.php';
 require_once dirname(__DIR__) . '/src/Message.php';
 require_once dirname(__DIR__) . '/src/Csrf.php';
 require_once dirname(__DIR__) . '/src/RateLimiter.php';
+require_once dirname(__DIR__) . '/src/Settings.php';
 
 start_session();
 
@@ -101,7 +102,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         switch ($action) {
             case 'generate':
-                if (html_rate_limit('generate', 10, 3600)) {
+                if (html_rate_limit('generate', ...rate_limit_for('generate'))) {
                     $new = Inbox::createRandom();
                     set_owner_token($new['token']);
                     flash('ok', 'New address ready.');
@@ -109,7 +110,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                 break;
 
             case 'custom':
-                if (html_rate_limit('generate', 10, 3600)) {
+                if (html_rate_limit('generate', ...rate_limit_for('generate'))) {
                     $new = Inbox::createCustom((string) ($_POST['prefix'] ?? ''));
                     set_owner_token($new['token']);
                     flash('ok', 'Address ' . $new['address'] . ' is yours.');
@@ -153,7 +154,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 // address is in the HTML on first paint.
 $rateLimited = false;
 if ($inbox === null) {
-    if (html_rate_limit('generate', 10, 3600)) {
+    if (html_rate_limit('generate', ...rate_limit_for('generate'))) {
         try {
             $inbox = Inbox::createRandom();
             set_owner_token($inbox['token']);
@@ -197,6 +198,9 @@ $address    = $inbox['address'] ?? '';
 $expiresAt  = $inbox['expires_at'] ?? '';
 $expiresIn  = max(0, (int) ($inbox['expires_in'] ?? 0));
 $extensions = (int) ($inbox['extensions'] ?? 0);
+$siteName   = (string) Settings::get('site_name');
+$maxExt     = Settings::int('max_extensions');
+$extendMins = Settings::int('extension_minutes');
 $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
 ?>
 <!doctype html>
@@ -206,7 +210,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="csrf-token" content="<?= h($csrf) ?>">
 <meta name="robots" content="noindex">
-<title><?= h($titlePrefix) ?>TempMail — disposable inbox</title>
+<title><?= h($titlePrefix . $siteName) ?> — disposable inbox</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%93%AC</text></svg>">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -214,11 +218,11 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
   data-address="<?= h($address) ?>"
   data-expires-in="<?= h((string) $expiresIn) ?>"
   data-extensions="<?= h((string) $extensions) ?>"
-  data-max-extensions="<?= h((string) MAX_EXTENSIONS) ?>"
+  data-max-extensions="<?= h((string) $maxExt) ?>"
   data-last-id="<?= h((string) $lastId) ?>">
 
 <header class="topbar">
-  <span class="brand">📬 TempMail</span>
+  <span class="brand"><span class="brand-mark" aria-hidden="true">✉</span><?= h($siteName) ?></span>
   <form method="post" class="inline-form" data-js="generate">
     <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
     <input type="hidden" name="action" value="generate">
@@ -263,9 +267,9 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
         <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
         <input type="hidden" name="action" value="extend">
         <button type="submit" id="extend-btn" class="btn"
-          <?= $extensions >= MAX_EXTENSIONS ? 'disabled' : '' ?>>+1 hour</button>
+          <?= $extensions >= $maxExt ? 'disabled' : '' ?>>+<?= h((string) (int) round($extendMins / 60)) ?: '1' ?> hour</button>
       </form>
-      <span id="extend-note" class="hint"><?= h((string) (MAX_EXTENSIONS - $extensions)) ?> left</span>
+      <span id="extend-note" class="hint"><?= h((string) max(0, $maxExt - $extensions)) ?> left</span>
     </div>
 
     <details class="custom" id="custom-panel">
@@ -312,11 +316,15 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
       ?>
       <li class="message<?= (int) $m['is_read'] === 0 ? ' unread' : '' ?>" data-id="<?= h((string) $m['id']) ?>">
         <a class="message-link" href="?msg=<?= h((string) $m['id']) ?>">
-          <span class="message-top">
-            <span class="sender"><span class="dot" aria-hidden="true"></span><?= h($sender) ?></span>
-            <span class="time"><?= h(relative_time((int) $m['age_seconds'])) ?></span>
+          <span class="avatar" aria-hidden="true"><?= h(mb_substr($sender, 0, 1)) ?></span>
+          <span class="message-body">
+            <span class="message-top">
+              <span class="sender"><?= h($sender) ?></span>
+              <span class="time"><?= h(relative_time((int) $m['age_seconds'])) ?></span>
+            </span>
+            <span class="subject"><?= h(trim((string) $m['subject']) !== '' ? (string) $m['subject'] : '(no subject)') ?></span>
           </span>
-          <span class="subject"><?= h(trim((string) $m['subject']) !== '' ? (string) $m['subject'] : '(no subject)') ?></span>
+          <span class="dot" aria-hidden="true"></span>
         </a>
       </li>
       <?php endforeach; ?>

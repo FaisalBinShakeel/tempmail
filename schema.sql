@@ -38,3 +38,9 @@ CREATE TABLE rate_limits (
     UNIQUE KEY uniq_bucket (ip_address, action, window_start),
     INDEX (window_start)
 );
+
+CREATE TABLE settings (
+    name       VARCHAR(64) PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

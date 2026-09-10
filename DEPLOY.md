@@ -453,6 +453,27 @@ EOF
 
 ---
 
+## 9b. Admin panel
+
+```bash
+# Generate a password hash (paste the output, not your password)
+php -r 'echo password_hash("YOUR-ADMIN-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'
+sudo nano /var/www/tempmail/config.php     # const ADMIN_PASSWORD_HASH = '$2y$10$...';
+```
+
+The settings the panel edits live in their own table:
+
+```bash
+sudo mysql tempmail < /var/www/tempmail/migrations/001_settings.sql
+```
+
+Open `https://mail.example.com/admin`. The Overview tab runs the same checks as
+`verify.php` plus live ones — MX record, port 25, whether mail has ever
+arrived, whether the cleanup cron is running — and prints the fix for anything
+that is wrong.
+
+---
+
 ## 10. Verify the install
 
 ```bash

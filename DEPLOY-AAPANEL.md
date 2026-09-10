@@ -329,6 +329,34 @@ mail. `verify.php` reports this as a WARN, not a failure.
 
 ---
 
+## 11b. Admin panel
+
+```bash
+cd /www/wwwroot/$DOMAIN
+
+# Settings table (the panel's Settings tab writes here)
+mysql -u DB_USER -p DB_NAME < migrations/001_settings.sql
+
+# Password hash — paste the output into config.php, never the password itself
+$PHPBIN -r 'echo password_hash("YOUR-ADMIN-PASSWORD", PASSWORD_DEFAULT), PHP_EOL;'
+nano config.php        # const ADMIN_PASSWORD_HASH = '$2y$10$...';
+```
+
+Then open `https://mail.example.com/admin`:
+
+- **Overview** — health checks with copy-paste fixes: MX record (it detects a
+  Cloudflare-proxied or bare-label MX), port 25, whether any mail has ever
+  arrived, whether the cleanup cron runs, HTTPS and cookie flags, log
+  permissions.
+- **Settings** — site name, inbox lifetime, extension ceiling, rate limits.
+  Live immediately, no file editing.
+- **Inboxes** — recent addresses and top senders (counts only, never message
+  contents).
+- **Tools** — run cleanup now, clear rate limits (handy when your own testing
+  trips a 429).
+
+---
+
 ## 12. Panel: the cleanup cron
 
 **Cron → Add task**
@@ -520,8 +548,13 @@ and no row means the address had no live inbox — correct behaviour for an
 expired one.
 
 **429 while testing**
-Ten address generations per IP per hour. Clear it:
+Ten address generations per IP per hour. Clear it from the admin panel
+(Tools → Clear rate limits), raise the limit in Settings, or:
 `mysql -u DB_USER -p DB_NAME -e "DELETE FROM rate_limits;"`
+
+**Admin panel says "Set an admin password"**
+`ADMIN_PASSWORD_HASH` is missing from `config.php` — the page shows the exact
+command that generates it.
 
 **PHP version mismatch**
 The panel's site PHP and your CLI path must match. If the site runs 8.2, the

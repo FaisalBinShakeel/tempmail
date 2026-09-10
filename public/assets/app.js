@@ -124,17 +124,20 @@
     link.className = 'message-link';
     link.href = '?msg=' + encodeURIComponent(msg.id);
 
+    var senderName = msg.sender_name || msg.sender_email || 'Unknown sender';
+
+    var avatar = document.createElement('span');
+    avatar.className = 'avatar';
+    avatar.setAttribute('aria-hidden', 'true');
+    avatar.textContent = senderName.charAt(0);
+
     var top = document.createElement('span');
     top.className = 'message-top';
 
     var sender = document.createElement('span');
     sender.className = 'sender';
-    var dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.setAttribute('aria-hidden', 'true');
-    sender.appendChild(dot);
     // textContent, never innerHTML: sender names and subjects are attacker-controlled.
-    sender.appendChild(document.createTextNode(msg.sender_name || msg.sender_email || 'Unknown sender'));
+    sender.textContent = senderName;
 
     var time = document.createElement('span');
     time.className = 'time';
@@ -147,8 +150,18 @@
     subject.className = 'subject';
     subject.textContent = (msg.subject && msg.subject.trim()) ? msg.subject : '(no subject)';
 
-    link.appendChild(top);
-    link.appendChild(subject);
+    var body = document.createElement('span');
+    body.className = 'message-body';
+    body.appendChild(top);
+    body.appendChild(subject);
+
+    var dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.setAttribute('aria-hidden', 'true');
+
+    link.appendChild(avatar);
+    link.appendChild(body);
+    link.appendChild(dot);
     li.appendChild(link);
 
     window.setTimeout(function () { li.classList.remove('new'); }, 1800);

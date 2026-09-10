@@ -7,7 +7,8 @@ require_once dirname(__DIR__, 2) . '/src/Inbox.php';
 
 api_boot();
 api_require_method('GET');
-api_rate_limit('availability', 30, 60); // NFR-8
+[$max, $window] = rate_limit_for('availability');
+api_rate_limit('availability', $max, $window); // NFR-8
 
 $prefix = $_GET['prefix'] ?? '';
 if (!is_string($prefix)) {

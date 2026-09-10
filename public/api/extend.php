@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 2) . '/src/Helpers.php';
 require_once dirname(__DIR__, 2) . '/src/Inbox.php';
+require_once dirname(__DIR__, 2) . '/src/Settings.php';
 
 api_boot();
 api_require_method('POST');
@@ -15,13 +16,13 @@ $inbox = api_require_inbox();
 try {
     $extended = Inbox::extend((int) $inbox['id']);
 } catch (RuntimeException $e) {
-    json_error($e->getMessage(), 422, ['max_extensions' => MAX_EXTENSIONS]);
+    json_error($e->getMessage(), 422, ['max_extensions' => Settings::int('max_extensions')]);
 }
 
 json_response([
     'expires_at'  => $extended['expires_at'],
     'expires_in'  => $extended['expires_in'],
     'extensions'  => (int) $inbox['extensions'] + 1,
-    'remaining'   => MAX_EXTENSIONS - ((int) $inbox['extensions'] + 1),
+    'remaining'   => max(0, Settings::int('max_extensions') - ((int) $inbox['extensions'] + 1)),
     'server_time' => date('Y-m-d H:i:s'),
 ]);

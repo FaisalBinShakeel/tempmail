@@ -8,7 +8,8 @@ require_once dirname(__DIR__, 2) . '/src/Inbox.php';
 api_boot();
 api_require_method('POST');
 api_require_csrf();
-api_rate_limit('generate', 10, 3600); // NFR-7 — custom addresses count too
+[$max, $window] = rate_limit_for('generate');
+api_rate_limit('generate', $max, $window); // NFR-7 — custom addresses count too
 
 $body   = json_body();
 $prefix = $body['prefix'] ?? ($_POST['prefix'] ?? '');
