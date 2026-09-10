@@ -71,28 +71,26 @@ function client_ip(): string
     return $remote;
 }
 
-/** "just now", "2 min ago", "3 h ago", "5 d ago" for a DATETIME string. */
-function relative_time(string $datetime): string
+/**
+ * "just now", "2 min ago", "3 hours ago" from an age in seconds.
+ *
+ * Takes seconds rather than a timestamp on purpose: the age is computed by
+ * MySQL, so a server whose PHP timezone differs from the database's cannot
+ * turn a fresh email into "5 hours ago".
+ */
+function relative_time(int $ageSeconds): string
 {
-    $then = strtotime($datetime);
-    if ($then === false) {
-        return '';
-    }
-    $seconds = time() - $then;
-    if ($seconds < 0) {
-        $seconds = 0;
-    }
+    $seconds = max(0, $ageSeconds);
 
     if ($seconds < 45) {
         return 'just now';
     }
     if ($seconds < 3600) {
-        $m = (int) round($seconds / 60);
-        return $m . ' min ago';
+        return (int) round($seconds / 60) . ' min ago';
     }
     if ($seconds < 86400) {
-        $hrs = (int) floor($seconds / 3600);
-        return $hrs . ' hour' . ($hrs === 1 ? '' : 's') . ' ago';
+        $hours = (int) floor($seconds / 3600);
+        return $hours . ' hour' . ($hours === 1 ? '' : 's') . ' ago';
     }
     $days = (int) floor($seconds / 86400);
     return $days . ' day' . ($days === 1 ? '' : 's') . ' ago';

@@ -195,6 +195,7 @@ if ($inbox !== null) {
 $csrf       = Csrf::token();
 $address    = $inbox['address'] ?? '';
 $expiresAt  = $inbox['expires_at'] ?? '';
+$expiresIn  = max(0, (int) ($inbox['expires_in'] ?? 0));
 $extensions = (int) ($inbox['extensions'] ?? 0);
 $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
 ?>
@@ -211,8 +212,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
 </head>
 <body
   data-address="<?= h($address) ?>"
-  data-expires-at="<?= h($expiresAt) ?>"
-  data-server-time="<?= h(date('Y-m-d H:i:s')) ?>"
+  data-expires-in="<?= h((string) $expiresIn) ?>"
   data-extensions="<?= h((string) $extensions) ?>"
   data-max-extensions="<?= h((string) MAX_EXTENSIONS) ?>"
   data-last-id="<?= h((string) $lastId) ?>">
@@ -258,7 +258,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
     </div>
 
     <div class="meta-row">
-      <span id="countdown" class="countdown">Expires <?= h(date('H:i', (int) strtotime((string) $expiresAt))) ?></span>
+      <span id="countdown" class="countdown">Expires in <?= h((string) (int) ceil($expiresIn / 60)) ?> min</span>
       <form method="post" class="inline-form" data-js="extend">
         <input type="hidden" name="csrf_token" value="<?= h($csrf) ?>">
         <input type="hidden" name="action" value="extend">
@@ -314,7 +314,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
         <a class="message-link" href="?msg=<?= h((string) $m['id']) ?>">
           <span class="message-top">
             <span class="sender"><span class="dot" aria-hidden="true"></span><?= h($sender) ?></span>
-            <span class="time"><?= h(relative_time((string) $m['received_at'])) ?></span>
+            <span class="time"><?= h(relative_time((int) $m['age_seconds'])) ?></span>
           </span>
           <span class="subject"><?= h(trim((string) $m['subject']) !== '' ? (string) $m['subject'] : '(no subject)') ?></span>
         </a>
@@ -358,7 +358,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
       <p class="reader-meta">
         <?= h($viewSender) ?>
         <span class="muted">&lt;<?= h((string) $view['sender_email']) ?>&gt;</span>
-        · <?= h(relative_time((string) $view['received_at'])) ?>
+        · <?= h(relative_time((int) $view['age_seconds'])) ?>
       </p>
 
       <?php if ($viewOtp !== null): ?>

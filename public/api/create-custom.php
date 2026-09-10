@@ -27,6 +27,7 @@ set_owner_token($inbox['token']);
 json_response([
     'address'     => $inbox['address'],
     'expires_at'  => $inbox['expires_at'],
+    'expires_in'  => (int) $inbox['expires_in'],
     'extensions'  => (int) $inbox['extensions'],
     'server_time' => date('Y-m-d H:i:s'),
 ]);

@@ -66,8 +66,11 @@ final class Inbox
             return null;
         }
 
+        // expires_in is computed by MySQL, so nothing downstream has to line
+        // up PHP's timezone with the database's — or the browser's with either.
         $stmt = Database::pdo()->prepare(
-            'SELECT id, address, token, is_custom, extensions, created_at, expires_at
+            'SELECT id, address, token, is_custom, extensions, created_at, expires_at,
+                    TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS expires_in
                FROM inboxes
               WHERE token = ? AND expires_at > NOW()
               ORDER BY id DESC
@@ -82,10 +85,10 @@ final class Inbox
     /**
      * FR-5.2 — add one extension. Refuses past MAX_EXTENSIONS.
      *
-     * @return string the new expiry as 'Y-m-d H:i:s'
+     * @return array{expires_at:string,expires_in:int}
      * @throws RuntimeException when the ceiling is reached or the inbox is gone.
      */
-    public static function extend(int $inboxId): string
+    public static function extend(int $inboxId): array
     {
         $pdo = Database::pdo();
 
@@ -101,11 +104,17 @@ final class Inbox
             throw new RuntimeException('This inbox cannot be extended any further.');
         }
 
-        $read = $pdo->prepare('SELECT expires_at FROM inboxes WHERE id = ?');
+        $read = $pdo->prepare(
+            'SELECT expires_at, TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS expires_in
+               FROM inboxes WHERE id = ?'
+        );
         $read->execute([$inboxId]);
-        $expiry = $read->fetchColumn();
+        $row = $read->fetch();
 
-        return is_string($expiry) ? $expiry : '';
+        return [
+            'expires_at' => (string) ($row['expires_at'] ?? ''),
+            'expires_in' => (int) ($row['expires_in'] ?? 0),
+        ];
     }
 
     /**
@@ -219,7 +228,8 @@ final class Inbox
         $id = (int) $pdo->lastInsertId();
 
         $read = $pdo->prepare(
-            'SELECT id, address, token, is_custom, extensions, created_at, expires_at
+            'SELECT id, address, token, is_custom, extensions, created_at, expires_at,
+                    TIMESTAMPDIFF(SECOND, NOW(), expires_at) AS expires_in
                FROM inboxes WHERE id = ?'
         );
         $read->execute([$id]);

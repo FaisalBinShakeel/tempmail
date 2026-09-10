@@ -13,13 +13,14 @@ api_rate_limit('mutate', 60, 60);
 $inbox = api_require_inbox();
 
 try {
-    $expiresAt = Inbox::extend((int) $inbox['id']);
+    $extended = Inbox::extend((int) $inbox['id']);
 } catch (RuntimeException $e) {
     json_error($e->getMessage(), 422, ['max_extensions' => MAX_EXTENSIONS]);
 }
 
 json_response([
-    'expires_at'  => $expiresAt,
+    'expires_at'  => $extended['expires_at'],
+    'expires_in'  => $extended['expires_in'],
     'extensions'  => (int) $inbox['extensions'] + 1,
     'remaining'   => MAX_EXTENSIONS - ((int) $inbox['extensions'] + 1),
     'server_time' => date('Y-m-d H:i:s'),

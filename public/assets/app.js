@@ -10,14 +10,17 @@
   var body = document.body;
   var state = {
     address: body.dataset.address || '',
-    expiresAt: parseServerDate(body.dataset.expiresAt),
+    // The server sends seconds remaining, never a timestamp: comparing a
+    // server datetime against the browser's clock made every inbox look
+    // expired whenever the two were in different timezones.
+    deadline: Date.now() + parseInt(body.dataset.expiresIn || '0', 10) * 1000,
     extensions: parseInt(body.dataset.extensions || '0', 10),
     maxExtensions: parseInt(body.dataset.maxExtensions || '3', 10),
     lastId: parseInt(body.dataset.lastId || '0', 10),
-    clockOffset: 0,          // serverNow - clientNow, in ms
     pollTimer: null,
     countdownTimer: null,
     expired: false,
+    verifying: false,
     openMessageId: 0
   };
 
@@ -55,15 +58,10 @@
     return meta ? meta.getAttribute('content') : '';
   }
 
-  /** MySQL DATETIME strings are server-local; treat them as such consistently. */
-  function parseServerDate(value) {
-    if (!value) { return 0; }
-    var parsed = Date.parse(value.replace(' ', 'T'));
-    return isNaN(parsed) ? 0 : parsed;
-  }
-
-  function serverNow() {
-    return Date.now() + state.clockOffset;
+  /** Seconds remaining, as last reported by the server, on our own clock. */
+  function setDeadline(secondsRemaining) {
+    var seconds = parseInt(secondsRemaining, 10);
+    if (!isNaN(seconds)) { state.deadline = Date.now() + seconds * 1000; }
   }
 
   function notice(message, kind) {
@@ -171,11 +169,11 @@
   }
 
   function applyMessages(data) {
-    if (data.server_time) {
-      state.clockOffset = parseServerDate(data.server_time) - Date.now();
-    }
-    if (data.expires_at) {
-      state.expiresAt = parseServerDate(data.expires_at);
+    if (typeof data.expires_in === 'number') {
+      setDeadline(data.expires_in);
+      // The server is the authority: if it still has time, we are not expired,
+      // whatever an earlier tick concluded.
+      if (data.expires_in > 0 && state.expired) { resume(); }
     }
     if (typeof data.extensions === 'number') {
       state.extensions = data.extensions;
@@ -233,21 +231,50 @@
   }
 
   function tickCountdown() {
-    if (!el.countdown || !state.expiresAt) { return; }
-    var remaining = state.expiresAt - serverNow();
+    if (!el.countdown) { return; }
+    var remaining = state.deadline - Date.now();
 
     if (remaining <= 0) {
-      state.expired = true;
-      stopPolling();
-      el.countdown.textContent = 'This inbox has expired';
-      el.countdown.classList.add('urgent');
-      notice('This inbox has expired. Generate a new address to keep going.', 'error');
-      window.clearInterval(state.countdownTimer);
+      // Ask the server before declaring the inbox dead — our clock is not the
+      // authority, and a wrong verdict here used to strand the whole page.
+      verifyExpiry();
       return;
     }
 
     el.countdown.textContent = 'Expires in ' + formatRemaining(remaining);
     el.countdown.classList.toggle('urgent', remaining < 5 * 60 * 1000);
+  }
+
+  /** One confirming request when the countdown reaches zero. */
+  function verifyExpiry() {
+    if (state.verifying || state.expired || !state.address) { return; }
+    state.verifying = true;
+
+    api('api/messages.php?since=' + encodeURIComponent(state.lastId)).then(function (result) {
+      state.verifying = false;
+
+      if (result.ok && result.data && result.data.expires_in > 0) {
+        applyMessages(result.data);   // still alive: our clock was simply off
+        return;
+      }
+
+      state.expired = true;
+      stopPolling();
+      window.clearInterval(state.countdownTimer);
+      el.countdown.textContent = 'This inbox has expired';
+      el.countdown.classList.add('urgent');
+      notice('This inbox has expired. Generate a new address to keep going.', 'error');
+    });
+  }
+
+  /** Come back to life after a false expiry verdict. */
+  function resume() {
+    state.expired = false;
+    el.countdown.classList.remove('urgent');
+    if (!state.countdownTimer) {
+      state.countdownTimer = window.setInterval(tickCountdown, 1000);
+    }
+    startPolling();
   }
 
   function syncExtendButton() {
@@ -303,9 +330,9 @@
   function extendInbox() {
     return api('api/extend.php', { method: 'POST' }).then(function (result) {
       if (!result.ok) { handleFailure(result); return; }
-      state.expiresAt = parseServerDate(result.data.expires_at);
+      setDeadline(result.data.expires_in);
       state.extensions = result.data.extensions;
-      state.clockOffset = parseServerDate(result.data.server_time) - Date.now();
+      if (result.data.expires_in > 0 && state.expired) { resume(); }
       syncExtendButton();
       tickCountdown();
       notice('Added one hour.', 'ok');
@@ -566,7 +593,7 @@
   refreshCounts();
   syncExtendButton();
 
-  if (state.expiresAt) {
+  if (state.address) {
     tickCountdown();
     state.countdownTimer = window.setInterval(tickCountdown, 1000);
   }

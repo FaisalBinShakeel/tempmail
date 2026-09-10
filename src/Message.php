@@ -41,7 +41,8 @@ final class Message
         $limit = max(1, min($limit, 200));
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, sender_name, sender_email, subject, has_attachment, is_read, received_at
+            'SELECT id, sender_name, sender_email, subject, has_attachment, is_read, received_at,
+                    TIMESTAMPDIFF(SECOND, received_at, NOW()) AS age_seconds
                FROM emails
               WHERE inbox_address = ? AND id > ?
               ORDER BY id DESC
@@ -60,7 +61,8 @@ final class Message
     {
         $stmt = Database::pdo()->prepare(
             'SELECT id, sender_name, sender_email, subject, body_text, body_html,
-                    raw_headers, has_attachment, is_read, received_at
+                    raw_headers, has_attachment, is_read, received_at,
+                    TIMESTAMPDIFF(SECOND, received_at, NOW()) AS age_seconds
                FROM emails
               WHERE id = ? AND inbox_address = ?
               LIMIT 1'

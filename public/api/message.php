@@ -37,7 +37,7 @@ json_response([
     'raw_headers'    => $row['raw_headers'],
     'has_attachment' => (bool) $row['has_attachment'],
     'received_at'    => $row['received_at'],
-    'relative_time'  => relative_time((string) $row['received_at']),
+    'relative_time'  => relative_time((int) $row['age_seconds']),
     'otp'            => Message::extractOtp($row['subject'], $row['body_text']),
     // Ready-made document for the sandboxed iframe: the client only ever
     // assigns this to srcdoc, never to innerHTML.

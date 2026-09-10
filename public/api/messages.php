@@ -27,7 +27,7 @@ foreach ($messages as $row) {
         'has_attachment' => (bool) $row['has_attachment'],
         'is_read'        => (bool) $row['is_read'],
         'received_at'    => $row['received_at'],
-        'relative_time'  => relative_time((string) $row['received_at']),
+        'relative_time'  => relative_time((int) $row['age_seconds']),
     ];
 }
 
@@ -36,5 +36,6 @@ json_response([
     'server_time' => date('Y-m-d H:i:s'),
     'address'     => $inbox['address'],
     'expires_at'  => $inbox['expires_at'],
+    'expires_in'  => (int) $inbox['expires_in'],   // seconds; the client counts down from this
     'extensions'  => (int) $inbox['extensions'],
 ]);
