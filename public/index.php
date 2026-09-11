@@ -42,7 +42,7 @@ set_exception_handler(static function (Throwable $e): void {
     echo '<!doctype html><meta charset="utf-8">'
         . '<meta name="viewport" content="width=device-width, initial-scale=1">'
         . '<title>TempMail is unavailable</title>'
-        . '<link rel="stylesheet" href="assets/style.css">'
+        . '<link rel="stylesheet" href="' . h(asset_url('style.css')) . '">'
         . '<main><p class="flash flash-error">TempMail is having trouble right now. '
         . 'Please try again in a minute.</p></main>';
 });
@@ -212,7 +212,7 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
 <meta name="robots" content="noindex">
 <title><?= h($titlePrefix . $siteName) ?> — disposable inbox</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%93%AC</text></svg>">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="<?= h(asset_url('style.css')) ?>">
 </head>
 <body
   data-address="<?= h($address) ?>"
@@ -421,6 +421,6 @@ $titlePrefix = $unread > 0 ? '(' . $unread . ') ' : '';
   </div>
 </div>
 
-<script src="assets/app.js" defer></script>
+<script src="<?= h(asset_url('app.js')) ?>" defer></script>
 </body>
 </html>

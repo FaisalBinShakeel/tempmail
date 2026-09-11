@@ -96,6 +96,25 @@ function relative_time(int $ageSeconds): string
     return $days . ' day' . ($days === 1 ? '' : 's') . ' ago';
 }
 
+/**
+ * URL for a file under public/assets, with a cache-busting version query.
+ *
+ * The version is the file's own last-modified time, so it changes exactly
+ * when the file changes — no manual step, no build tool. This is what makes
+ * a plain `git pull` show up immediately: the browser and any CDN in front
+ * (Cloudflare included) treat a different query string as a different URL,
+ * so the old cached copy is never reused for the new file. $prefix lets a
+ * page under a subdirectory (admin/index.php) point at "../assets/..." while
+ * everything else uses the default "assets/...".
+ */
+function asset_url(string $relativePath, string $prefix = 'assets/'): string
+{
+    $file = dirname(__DIR__) . '/public/assets/' . ltrim($relativePath, '/');
+    $version = is_file($file) ? (string) filemtime($file) : (string) time();
+
+    return $prefix . $relativePath . '?v=' . $version;
+}
+
 /** A 64-character cryptographically random hex token. */
 function random_token(): string
 {

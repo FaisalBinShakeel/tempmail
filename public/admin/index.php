@@ -34,7 +34,7 @@ set_exception_handler(static function (Throwable $e): void {
         header('Content-Type: text/html; charset=utf-8');
     }
     echo '<!doctype html><meta charset="utf-8"><title>Admin error</title>'
-        . '<link rel="stylesheet" href="../assets/style.css">'
+        . '<link rel="stylesheet" href="' . h(asset_url('style.css', '../assets/')) . '">'
         . '<main><p class="flash flash-error">The admin panel hit an error. '
         . 'Details are in logs/app.log.</p></main>';
 });
@@ -160,8 +160,8 @@ function pill(string $status): string
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Admin — <?= h($siteName) ?></title>
-<link rel="stylesheet" href="../assets/style.css">
-<link rel="stylesheet" href="../assets/admin.css">
+<link rel="stylesheet" href="<?= h(asset_url('style.css', '../assets/')) ?>">
+<link rel="stylesheet" href="<?= h(asset_url('admin.css', '../assets/')) ?>">
 </head>
 <body class="admin">
 
@@ -430,6 +430,6 @@ function pill(string $status): string
 
 </main>
 
-<script src="../assets/admin.js" defer></script>
+<script src="<?= h(asset_url('admin.js', '../assets/')) ?>" defer></script>
 </body>
 </html>
